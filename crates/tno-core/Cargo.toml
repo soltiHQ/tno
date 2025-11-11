@@ -1,0 +1,15 @@
+[package]
+name = "tno-core"
+version = "0.0.1"
+edition = "2024"
+
+[features]
+default = []
+
+[dependencies]
+thiserror = { workspace = true }
+taskvisor = { workspace = true }
+
+tno-model = { path = "../tno-model" }
+
+anyhow = "1"

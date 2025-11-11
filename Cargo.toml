@@ -2,6 +2,7 @@
 members = [
     "crates/tno-observe",
     "crates/tno-model",
+    "crates/tno-core",
 ]
 resolver = "2"
 
