@@ -1,0 +1,16 @@
+[package]
+name = "tno-model"
+version = "0.0.1"
+edition = "2024"
+
+[features]
+default = []
+schema = ["dep:schemars"]
+
+[dependencies]
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }
+
+schemars = { version = "1.1.0", optional = true, features = ["uuid1", "chrono04"] }
