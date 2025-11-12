@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use tno_model::BackoffStrategy;
 use taskvisor::BackoffPolicy;
+use tno_model::BackoffStrategy;
 
 use super::to_jitter_policy;
 

@@ -4,7 +4,7 @@ pub mod logger;
 pub mod subscriber;
 
 pub mod prelude {
-    pub use crate::logger::{logger_init, LoggerConfig, LoggerError, LoggerFormat};
+    pub use crate::logger::{LoggerConfig, LoggerError, LoggerFormat, logger_init};
 
     #[cfg(feature = "subscriber")]
     pub use crate::subscriber::Journal;

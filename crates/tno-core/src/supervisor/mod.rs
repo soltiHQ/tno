@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+// TODO: change to 'SupervisorConfig' after: https://github.com/soltiHQ/taskvisor/issues/47
 use taskvisor::{Config as SupervisorConfig, ControllerConfig, Supervisor};
 use tracing::{debug, info, instrument};
 
@@ -28,9 +29,9 @@ impl SupervisorApi {
 
     #[instrument(level = "debug", skip(self, spec), fields(slot = %spec.slot, kind = ?spec.kind))]
     pub async fn submit(&self, spec: &tno_model::CreateSpec) -> Result<(), CoreError> {
-        let task  = self.router.build(spec)?;
+        let task = self.router.build(spec)?;
 
-        debug!("submitting controller spec");
+        debug!("submitting new spec");
         self.sup
             .submit(to_controller_spec(task, spec))
             .await

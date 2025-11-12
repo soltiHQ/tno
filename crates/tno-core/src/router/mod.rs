@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use tno_model::CreateSpec;
 
-use crate::{error::CoreError, runner::{BuildContext, Runner}};
+use crate::{
+    error::CoreError,
+    runner::{BuildContext, Runner},
+};
 
 #[derive(Default)]
 pub struct RunnerRouter {
@@ -26,7 +29,7 @@ impl RunnerRouter {
     }
 
     #[inline]
-    pub fn register(&mut self, runner:Arc<dyn Runner>) {
+    pub fn register(&mut self, runner: Arc<dyn Runner>) {
         self.runners.push(runner);
     }
 
@@ -35,7 +38,9 @@ impl RunnerRouter {
     }
 
     pub fn build(&self, spec: &CreateSpec) -> Result<taskvisor::TaskRef, CoreError> {
-        let r = self.pick(spec).ok_or_else(|| CoreError::NoRunner(format!("{:?}", spec.kind)))?;
+        let r = self
+            .pick(spec)
+            .ok_or_else(|| CoreError::NoRunner(format!("{:?}", spec.kind)))?;
         r.build_task(spec, &self.ctx).map_err(CoreError::from)
     }
 }

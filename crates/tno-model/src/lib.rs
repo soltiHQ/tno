@@ -17,8 +17,8 @@ pub use schemars::{JsonSchema, schema_for};
 
 pub mod prelude {
     pub use crate::{
-        CreateRequest, CreateSpec, TaskKind,
-        AdmissionStrategy, RestartStrategy, BackoffStrategy, JitterStrategy,
+        AdmissionStrategy, BackoffStrategy, CreateRequest, CreateSpec, JitterStrategy,
+        RestartStrategy, TaskKind,
     };
     #[cfg(feature = "schema")]
     pub use schemars::{JsonSchema, schema_for};

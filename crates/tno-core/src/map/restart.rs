@@ -1,5 +1,5 @@
-use tno_model::RestartStrategy;
 use taskvisor::RestartPolicy;
+use tno_model::RestartStrategy;
 
 pub fn to_restart_policy(s: RestartStrategy) -> RestartPolicy {
     match s {

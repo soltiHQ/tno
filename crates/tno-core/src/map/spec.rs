@@ -15,7 +15,7 @@ pub fn to_task_spec(task: TaskRef, s: &CreateSpec) -> TaskSpec {
 }
 
 pub fn to_controller_spec(task: TaskRef, s: &CreateSpec) -> ControllerSpec {
-    ControllerSpec{
+    ControllerSpec {
         admission: to_admission_policy(s.admission),
         task_spec: to_task_spec(task, s),
     }
