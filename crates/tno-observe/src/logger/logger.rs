@@ -1,10 +1,14 @@
 use tracing::Subscriber;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::logger::{config::LoggerConfig, error::LoggerError, object::LoggerRfc3339};
+use crate::logger::{
+    config::LoggerConfig,
+    error::{LoggerError, LoggerResult},
+    object::LoggerRfc3339,
+};
 
 /// Initializes text logger.
-pub fn logger_text(cfg: &LoggerConfig) -> Result<(), LoggerError> {
+pub fn logger_text(cfg: &LoggerConfig) -> LoggerResult<()> {
     let filter = cfg.level.to_env_filter();
     let fmt_layer = fmt::layer()
         .with_ansi(cfg.should_use_color())
@@ -16,7 +20,7 @@ pub fn logger_text(cfg: &LoggerConfig) -> Result<(), LoggerError> {
 }
 
 /// Initializes JSON (structured) logger.
-pub fn logger_json(cfg: &LoggerConfig) -> Result<(), LoggerError> {
+pub fn logger_json(cfg: &LoggerConfig) -> LoggerResult<()> {
     let filter = cfg.level.to_env_filter();
     let fmt_layer = fmt::layer()
         .json()
@@ -30,7 +34,7 @@ pub fn logger_json(cfg: &LoggerConfig) -> Result<(), LoggerError> {
 
 /// Initializes journald logger (Linux only).
 #[cfg(all(target_os = "linux"))]
-pub fn logger_journald(cfg: &LoggerConfig) -> Result<(), LoggerError> {
+pub fn logger_journald(cfg: &LoggerConfig) -> LoggerResult<()> {
     let filter = cfg.level.to_env_filter();
     let journald =
         tracing_journald::layer().map_err(|e| LoggerError::JournaldInitFailed(e.to_string()))?;
@@ -41,16 +45,17 @@ pub fn logger_journald(cfg: &LoggerConfig) -> Result<(), LoggerError> {
 
 /// Stub for journald on non-Linux platforms.
 #[cfg(not(all(target_os = "linux")))]
-pub fn logger_journald(_cfg: &LoggerConfig) -> Result<(), LoggerError> {
+pub fn logger_journald(_cfg: &LoggerConfig) -> LoggerResult<()> {
     Err(LoggerError::JournaldNotSupported)
 }
 
 /// Installs the subscriber as the global default.
-fn init_subscriber<S>(subscriber: S) -> Result<(), LoggerError>
+fn init_subscriber<S>(subscriber: S) -> LoggerResult<()>
 where
     S: Subscriber + Send + Sync + 'static,
 {
-    subscriber.try_init()
+    subscriber
+        .try_init()
         .map_err(|_| LoggerError::AlreadyInitialized)
 }
 

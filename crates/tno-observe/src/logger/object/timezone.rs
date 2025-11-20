@@ -1,4 +1,8 @@
-use std::{fmt, str::FromStr, sync::{RwLock, OnceLock}};
+use std::{
+    fmt,
+    str::FromStr,
+    sync::{OnceLock, RwLock},
+};
 
 use serde::{Deserialize, Serialize};
 use time::UtcOffset;
@@ -99,8 +103,11 @@ pub(crate) fn sync_local_offset() -> Result<(), LoggerError> {
             let old_offset = *guard;
             if old_offset != new_offset {
                 *guard = new_offset;
-                debug!("TZ offset updated: {} -> {}",
-                       format_offset(old_offset), format_offset(new_offset));
+                debug!(
+                    "TZ offset updated: {} -> {}",
+                    format_offset(old_offset),
+                    format_offset(new_offset)
+                );
             }
             Ok(())
         }
@@ -113,22 +120,23 @@ pub(crate) fn sync_local_offset() -> Result<(), LoggerError> {
 
 /// Returns current local offset for timestamp formatting.
 pub(crate) fn get_or_detect_local_offset() -> UtcOffset {
-    INIT_DONE.get_or_init(|| {
-        match UtcOffset::current_local_offset() {
-            Ok(detected) => {
-                if let Ok(mut guard) = LOCAL_OFFSET.write() {
-                    *guard = detected;
-                }
+    INIT_DONE.get_or_init(|| match UtcOffset::current_local_offset() {
+        Ok(detected) => {
+            if let Ok(mut guard) = LOCAL_OFFSET.write() {
+                *guard = detected;
             }
-            Err(_) => {
-                eprintln!("WARNING: tno-observe local timezone detection failed. \
+        }
+        Err(_) => {
+            eprintln!(
+                "WARNING: tno-observe local timezone detection failed. \
                           Call init_local_offset() in main() before tokio runtime. \
-                          Falling back to UTC.");
-            }
+                          Falling back to UTC."
+            );
         }
     });
 
-    LOCAL_OFFSET.read()
+    LOCAL_OFFSET
+        .read()
         .map(|guard| *guard)
         .unwrap_or(UtcOffset::UTC)
 }

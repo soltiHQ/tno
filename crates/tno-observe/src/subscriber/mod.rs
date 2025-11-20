@@ -40,7 +40,7 @@ impl Subscribe for Subscriber {
 /// Logs an event with appropriate tracing level and structured fields.
 ///
 /// This is public to allow custom subscribers to reuse the same logging logic.
-pub fn log_event<E: View>(e: E) {
+fn log_event<E: View>(e: E) {
     let msg = message_for(e.kind());
 
     match e.kind() {
