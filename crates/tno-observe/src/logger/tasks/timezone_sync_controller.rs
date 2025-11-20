@@ -28,8 +28,6 @@ use crate::logger::object::timezone::sync_local_offset;
 /// Returns a `ControllerSpec` that periodically updates the local offset.
 /// On success, waits 24 hours. On failure, retries with exponential backoff.
 pub fn timezone_sync() -> ControllerSpec {
-    const SYNC_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
-
     let task: TaskRef = TaskFn::arc("tno-logger-tz-sync", |ctx: CancellationToken| async move {
         debug!("Timezone sync started");
 
@@ -48,7 +46,7 @@ pub fn timezone_sync() -> ControllerSpec {
     });
 
     let backoff = BackoffPolicy {
-        success_delay: Some(SYNC_INTERVAL),
+        success_delay: Some(Duration::from_secs(3600)),
         jitter: JitterPolicy::None,
         factor: 2.0,
 
