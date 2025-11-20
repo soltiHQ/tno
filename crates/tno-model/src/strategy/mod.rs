@@ -1,9 +1,11 @@
 mod admission;
-mod backoff;
-mod jitter;
-mod restart;
-
 pub use admission::AdmissionStrategy;
+
+mod backoff;
 pub use backoff::BackoffStrategy;
+
+mod jitter;
 pub use jitter::JitterStrategy;
+
+mod restart;
 pub use restart::RestartStrategy;

@@ -1,21 +1,14 @@
 mod domain;
+pub use domain::{Env, KeyValue, Slot, TimeoutMs};
+
 mod error;
+pub use error::ModelError;
+
 mod kind;
-mod spec;
-mod strategy;
-
-pub use error::{ModelError, ModelResult};
 pub use kind::TaskKind;
+
+mod spec;
 pub use spec::CreateSpec;
+
+mod strategy;
 pub use strategy::{AdmissionStrategy, BackoffStrategy, JitterStrategy, RestartStrategy};
-
-#[cfg(feature = "schema")]
-pub use schemars::{JsonSchema, schema_for};
-
-pub mod prelude {
-    pub use crate::{
-        AdmissionStrategy, BackoffStrategy, CreateSpec, JitterStrategy, RestartStrategy, TaskKind,
-    };
-    #[cfg(feature = "schema")]
-    pub use schemars::{JsonSchema, schema_for};
-}

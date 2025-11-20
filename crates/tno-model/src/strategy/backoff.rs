@@ -1,15 +1,38 @@
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "schema")]
-use schemars::JsonSchema;
-
+/// Defines how backoff delays are calculated when retrying or restarting a task.
+///
+/// This structure combines:
+/// - exponential backoff parameters (`first_ms`, `max_ms`, `factor`)
+/// - optional fixed delay (`delay_ms`)
+/// - a jitter policy (`jitter`)
+///
+/// ## Fields
+/// - `jitter` — Jitter strategy applied to every computed delay.
+///   Helps avoid synchronized retry storms.
+/// - `delay_ms` — Optional fixed delay (in milliseconds).
+///   If provided, this value overrides exponential backoff and is used
+///   as the constant retry delay *before jitter is applied*.
+/// - `first_ms` — Initial backoff delay (in milliseconds)
+///   used for the first retry attempt when `delay_ms` is not set.
+/// - `max_ms` — Maximum allowed delay (in milliseconds).
+///   The exponential backoff will never exceed this cap.
+/// - `factor` — Multiplier for exponential growth.
+///   For example:
+///   - `factor = 2.0` → classic doubling (100 → 200 → 400 → ...)
+///   - `factor = 1.0` → linear growth
+///   - `factor < 1.0` → decaying backoff (rare, but allowed)
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct BackoffStrategy {
+    /// Jitter policy applied to each computed delay.
     pub jitter: super::JitterStrategy,
+    /// Optional fixed delay (ms) after success execution.
     pub delay_ms: Option<u64>,
+    /// Initial delay (ms) for exponential backoff.
     pub first_ms: u64,
+    /// Maximum allowed delay (ms).
     pub max_ms: u64,
+    /// Exponential growth multiplier.
     pub factor: f64,
 }
