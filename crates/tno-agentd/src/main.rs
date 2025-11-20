@@ -23,7 +23,7 @@ async fn main() -> anyhow::Result<()> {
         vec![Arc::new(Subscriber::default()) as Arc<dyn taskvisor::Subscribe>];
     // 2) Готовим runner: "ls /tmp"
     let runner = ProcRunner::new(ProcConfig {
-        program: "ls".into(),
+        program: "top".into(),
         args: vec![],
         env: vec![], // можно добавить пары ("KEY".into(), "VALUE".into())
         cwd: None,   // можно задать рабочую директорию

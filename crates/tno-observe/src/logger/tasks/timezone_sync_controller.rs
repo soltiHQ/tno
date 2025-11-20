@@ -47,11 +47,11 @@ pub fn timezone_sync() -> ControllerSpec {
 
     let backoff = BackoffPolicy {
         success_delay: Some(Duration::from_secs(3600)),
-        jitter: JitterPolicy::None,
-        factor: 2.0,
+        jitter: JitterPolicy::Equal,
+        factor: 1.0,
 
         first: Duration::from_secs(60),
-        max: Duration::from_secs(3600),
+        max: Duration::from_secs(60),
     };
     ControllerSpec::replace(TaskSpec::new(
         task,

@@ -90,28 +90,40 @@ pub fn init_local_offset() {
 
 /// Synchronizes local offset.
 pub(crate) fn sync_local_offset() -> Result<(), LoggerError> {
-    let new_offset = UtcOffset::current_local_offset()
-        .map_err(|_| LoggerError::LocalTimezoneInitFailed)?;
+    match UtcOffset::current_local_offset() {
+        Ok(new_offset) => {
+            let Ok(mut guard) = LOCAL_OFFSET.write() else {
+                return Ok(());
+            };
 
-    let Ok(mut guard) = LOCAL_OFFSET.write() else {
-        return Ok(());
-    };
-
-    let old_offset = *guard;
-    if old_offset != new_offset {
-        *guard = new_offset;
-        debug!("TZ offset updated: {} -> {}",
-               format_offset(old_offset), format_offset(new_offset));
+            let old_offset = *guard;
+            if old_offset != new_offset {
+                *guard = new_offset;
+                debug!("TZ offset updated: {} -> {}",
+                       format_offset(old_offset), format_offset(new_offset));
+            }
+            Ok(())
+        }
+        Err(_) => {
+            debug!("Timezone sync skipped (multi-thread context)");
+            Ok(())
+        }
     }
-    Ok(())
 }
 
 /// Returns current local offset for timestamp formatting.
 pub(crate) fn get_or_detect_local_offset() -> UtcOffset {
     INIT_DONE.get_or_init(|| {
-        if let Ok(detected) = UtcOffset::current_local_offset() {
-            if let Ok(mut guard) = LOCAL_OFFSET.write() {
-                *guard = detected;
+        match UtcOffset::current_local_offset() {
+            Ok(detected) => {
+                if let Ok(mut guard) = LOCAL_OFFSET.write() {
+                    *guard = detected;
+                }
+            }
+            Err(_) => {
+                eprintln!("WARNING: tno-observe local timezone detection failed. \
+                          Call init_local_offset() in main() before tokio runtime. \
+                          Falling back to UTC.");
             }
         }
     });
