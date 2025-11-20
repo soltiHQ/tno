@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 /// The controller enforces admission policies per slot.
 pub type Slot = String;
 
-
 /// Timeout value in milliseconds.
 ///
 /// Used in task specifications and controller rules where
