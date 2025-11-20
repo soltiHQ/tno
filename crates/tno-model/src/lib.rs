@@ -1,4 +1,3 @@
-mod common;
 mod domain;
 mod error;
 mod kind;
