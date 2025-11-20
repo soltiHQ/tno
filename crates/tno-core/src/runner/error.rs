@@ -4,12 +4,16 @@ use thiserror::Error;
 pub enum RunnerError {
     #[error("unsupported task kind for runner '{runner}': {kind}")]
     UnsupportedKind { runner: &'static str, kind: String },
+
     #[error("invalid specification: {0}")]
     InvalidSpec(String),
+
     #[error("internal error: {0}")]
     Internal(String),
+
     #[error("missing field: {0}")]
     MissingField(&'static str),
+
     #[error("io error: {0}")]
     Io(String),
 }
