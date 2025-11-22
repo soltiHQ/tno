@@ -4,14 +4,10 @@
 //! - Submits tasks via the controller with mapped policies.
 use std::sync::Arc;
 
-use taskvisor::{Config as SupervisorConfig, ControllerConfig, Supervisor, Subscribe};
+use taskvisor::{Config as SupervisorConfig, ControllerConfig, Subscribe, Supervisor};
 use tracing::{debug, info, instrument};
 
-use crate::{
-    error::CoreError,
-    map::to_controller_spec,
-    router::RunnerRouter,
-};
+use crate::{error::CoreError, map::to_controller_spec, router::RunnerRouter};
 use tno_model::CreateSpec;
 
 /// Thin wrapper around taskvisor [`Supervisor`] with a runner router.

@@ -1,62 +1,81 @@
 #![cfg(feature = "timezone-sync")]
-
-//! Timezone synchronization controller for long-running processes.
+//! Timezone synchronization task spec for the logger.
 //!
-//! Periodically syncs the local timezone offset (every 24 hours) to detect DST transitions without requiring process restart.
+//! Periodically syncs the local timezone offset to detect DST transitions
+//! without requiring process restart.
 //!
-//! **Backoff policy:**
-//! - Success: waits 24 hours before next sync
-//! - Failure: exponential backoff starting at 60s, max 1 hour
+//! Backoff policy (current implementation):
+//! - On success: fixed delay of 1 hour before next sync.
+//! - On failure: retries with fixed 60s delay (no growth yet).
 //!
-//! **Requires:**
-//! - `init_local_offset()` called in `main()` before tokio runtime
-//! - `timezone-sync` feature flag
-
-use std::time::Duration;
-
-use taskvisor::{
-    BackoffPolicy, ControllerSpec, JitterPolicy, RestartPolicy::Always, TaskError, TaskFn, TaskRef,
-    TaskSpec,
-};
+//! Requires:
+//! - `init_local_offset()` called in `main()` before tokio runtime.
+//! - `timezone-sync` feature flag.
+// TODO: https://github.com/soltiHQ/taskvisor/issues/46: remove Backoff strategy after new feature.
+use taskvisor::{TaskError, TaskFn, TaskRef};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
 use crate::logger::object::timezone::sync_local_offset;
+use tno_model::{
+    AdmissionStrategy, BackoffStrategy, CreateSpec, JitterStrategy, RestartStrategy, TaskKind,
+};
 
-/// Creates a timezone synchronization controller.
+/// Timeout applied to each sync operation (in milliseconds).
+pub const TZ_SYNC_TIMEOUT_MS: u64 = 60_000;
+
+/// Base delay after a failure (in milliseconds).
+pub const TZ_SYNC_RETRY_MS: u64 = 60_000;
+
+/// Delay after a successful sync (in milliseconds).
+pub const TZ_SYNC_SUCCESS_DELAY_MS: u64 = 3_600_000;
+
+/// Name of the internal timezone-sync task.
+pub const TZ_SYNC_TASK_NAME: &str = "tno-logger-tz-sync";
+
+/// Build the timezone sync task and its corresponding `CreateSpec`.
 ///
-/// Returns a `ControllerSpec` that periodically updates the local offset.
-/// On success, waits 24 hours. On failure, retries with exponential backoff.
-pub fn timezone_sync() -> ControllerSpec {
-    let task: TaskRef = TaskFn::arc("tno-logger-tz-sync", |ctx: CancellationToken| async move {
-        debug!("Timezone sync started");
+/// Returns:
+/// - `TaskRef`    — concrete task body.
+/// - `CreateSpec` — model-level specification with restart/backoff/admission policies.
+///
+/// # Example
+/// ```no_run
+/// let (task, spec) = timezone_sync_spec();
+/// api.submit_with_task(task, &spec).await?;
+/// ```
+pub fn timezone_sync_spec() -> (TaskRef, CreateSpec) {
+    let task: TaskRef = TaskFn::arc(TZ_SYNC_TASK_NAME, |ctx: CancellationToken| async move {
+        debug!("timezone sync started");
 
         if ctx.is_cancelled() {
             return Err(TaskError::Canceled);
         }
         match sync_local_offset() {
             Ok(()) => {
-                debug!("Timezone offset sync success");
+                debug!("timezone offset sync success");
                 Ok(())
             }
             Err(e) => Err(TaskError::Fail {
-                reason: format!("failed to sync timezone offset: {}", e),
+                reason: format!("failed to sync timezone offset: {e}"),
             }),
         }
     });
 
-    let backoff = BackoffPolicy {
-        success_delay: Some(Duration::from_secs(3600)),
-        jitter: JitterPolicy::Equal,
+    let backoff = BackoffStrategy {
+        jitter: JitterStrategy::Equal,
+        delay_ms: Some(TZ_SYNC_SUCCESS_DELAY_MS),
+        first_ms: TZ_SYNC_RETRY_MS,
+        max_ms: TZ_SYNC_RETRY_MS,
         factor: 1.0,
-
-        first: Duration::from_secs(60),
-        max: Duration::from_secs(60),
     };
-    ControllerSpec::replace(TaskSpec::new(
-        task,
-        Always,
+    let spec = CreateSpec {
+        slot: TZ_SYNC_TASK_NAME.to_string(),
+        kind: TaskKind::Exec,
+        timeout_ms: TZ_SYNC_TIMEOUT_MS,
+        restart: RestartStrategy::Always,
         backoff,
-        Some(Duration::from_secs(60)),
-    ))
+        admission: AdmissionStrategy::Replace,
+    };
+    (task, spec)
 }

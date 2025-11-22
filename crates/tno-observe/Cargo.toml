@@ -5,7 +5,7 @@ edition = "2024"
 
 [features]
 default = []
-timezone-sync = ["dep:taskvisor", "dep:tokio-util"]
+timezone-sync = ["dep:taskvisor", "dep:tokio-util", "dep:tno-model"]
 subscriber = ["dep:taskvisor", "dep:async-trait"]
 
 [dependencies]
@@ -17,6 +17,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 
 taskvisor = { workspace = true, optional = true, features = ["controller"] }
+tno-model = { path = "../tno-model", optional = true }
 async-trait = { workspace = true, optional = true}
 tokio-util = { workspace = true, optional = true }
 

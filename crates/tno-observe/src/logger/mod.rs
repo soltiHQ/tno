@@ -11,7 +11,7 @@ pub use object::LoggerLevel;
 pub use object::{LoggerTimeZone, init_local_offset};
 
 #[cfg(feature = "timezone-sync")]
-pub use tasks::timezone_sync;
+pub use tasks::timezone_sync_spec;
 
 /// Initializes the global tracing subscriber with the given configuration.
 ///

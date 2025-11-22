@@ -36,7 +36,13 @@ async fn main() -> anyhow::Result<()> {
     router.register(Arc::new(runner));
 
     // 4) Поднимаем SupervisorApi
-    let api = SupervisorApi::new(taskvisor::Config::default(), taskvisor::ControllerConfig::default(), subscribers, router).await?;
+    let api = SupervisorApi::new(
+        taskvisor::Config::default(),
+        taskvisor::ControllerConfig::default(),
+        subscribers,
+        router,
+    )
+    .await?;
 
     // 5) Спека на задачу (TaskKind::Exec)
     let spec = CreateSpec {
