@@ -2,4 +2,4 @@
 mod timezone_sync_controller;
 
 #[cfg(feature = "timezone-sync")]
-pub use timezone_sync_controller::timezone_sync_spec;
+pub use timezone_sync_controller::timezone_sync;

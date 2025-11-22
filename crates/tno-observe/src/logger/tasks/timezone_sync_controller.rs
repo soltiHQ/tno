@@ -44,7 +44,7 @@ pub const TZ_SYNC_TASK_NAME: &str = "tno-logger-tz-sync";
 /// let (task, spec) = timezone_sync_spec();
 /// api.submit_with_task(task, &spec).await?;
 /// ```
-pub fn timezone_sync_spec() -> (TaskRef, CreateSpec) {
+pub fn timezone_sync() -> (TaskRef, CreateSpec) {
     let task: TaskRef = TaskFn::arc(TZ_SYNC_TASK_NAME, |ctx: CancellationToken| async move {
         debug!("timezone sync started");
 
