@@ -19,6 +19,8 @@ use crate::error::{ModelError, ModelResult};
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TaskKind {
+    /// Execute taskvisor::TaskFn function.
+    Fn,
     /// Execute a native process using the system shell or a direct binary.
     Exec,
     /// Run a WebAssembly module in a WASI-compatible environment.

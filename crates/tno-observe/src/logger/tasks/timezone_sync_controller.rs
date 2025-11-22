@@ -71,7 +71,7 @@ pub fn timezone_sync_spec() -> (TaskRef, CreateSpec) {
     };
     let spec = CreateSpec {
         slot: TZ_SYNC_TASK_NAME.to_string(),
-        kind: TaskKind::Exec,
+        kind: TaskKind::Fn,
         timeout_ms: TZ_SYNC_TIMEOUT_MS,
         restart: RestartStrategy::Always,
         backoff,
