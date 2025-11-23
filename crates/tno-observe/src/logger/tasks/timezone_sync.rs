@@ -5,8 +5,7 @@
 //! without requiring process restart.
 //!
 //! Backoff policy (current implementation):
-//! - On success: fixed delay of 1 hour before next sync.
-//! - On failure: retries with fixed 60s delay (no growth yet).
+//! - fixed delay of 1 hour before next sync.
 //!
 //! Requires:
 //! - `init_local_offset()` called in `main()` before tokio runtime.
