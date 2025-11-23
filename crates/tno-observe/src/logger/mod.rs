@@ -19,8 +19,7 @@ pub use tasks::timezone_sync;
 /// Once initialized, all `tracing` macros (`info!`, `debug!`, etc.) will use this configuration.
 ///
 /// # Important: Local Timezone
-/// For using `LoggerTimeZone::Local`, you **must** call [`object::timezone::init_local_offset`]
-/// in `main()` function before spawning any threads.
+/// For using `LoggerTimeZone::Local`, you **must** call [`object::timezone::init_local_offset`] in `main()` function before spawning any threads.
 ///
 /// # Examples
 /// ```rust

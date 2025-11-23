@@ -4,8 +4,7 @@ use crate::KeyValue;
 
 /// List of environment variables passed to the task.
 ///
-/// Internally stored as a list of key–value pairs and serialized
-/// as a transparent array wrapper.
+/// Internally stored as a list of key–value pairs and serialized as a transparent array wrapper.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Env(pub Vec<KeyValue>);
@@ -28,6 +27,11 @@ impl Env {
         V: Into<String>,
     {
         Self(vec![KeyValue::new(key, value)])
+    }
+
+    /// Check if the environment is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     /// Iterate over all key–value pairs.
@@ -59,8 +63,7 @@ impl Env {
 
     /// Merge two environments, where entries from `other` override earlier ones.
     ///
-    /// The environments are combined by simple concatenation, allowing
-    /// [`Env::get`] to resolve overrides naturally by scanning from the end.
+    /// The environments are combined by simple concatenation, allowing [`Env::get`] to resolve overrides naturally by scanning from the end.
     pub fn merged(&self, other: &Env) -> Env {
         let mut out = self.0.clone();
         out.extend(other.0.clone());
@@ -126,11 +129,8 @@ mod tests {
 
         let merged = base.merged(&other);
 
-        // override semantics
         assert_eq!(merged.get("FOO"), Some("override"));
-        // preserved from base
         assert_eq!(merged.get("BAR"), Some("bar"));
-        // added from other
         assert_eq!(merged.get("BAZ"), Some("baz"));
     }
 
@@ -141,7 +141,6 @@ mod tests {
         env.push("BAZ", "qux");
 
         let json = serde_json::to_string(&env).unwrap();
-        // должно быть массивом объектов
         assert!(json.starts_with('['));
         assert!(json.contains("\"key\":\"FOO\""));
         assert!(json.contains("\"value\":\"bar\""));

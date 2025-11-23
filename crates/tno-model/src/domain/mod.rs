@@ -4,6 +4,9 @@ pub use kv::KeyValue;
 mod env;
 pub use env::Env;
 
+mod flag;
+pub use flag::Flag;
+
 /// Logical identifier for a controller slot.
 ///
 /// A slot groups tasks that must not run concurrently.
@@ -12,6 +15,5 @@ pub type Slot = String;
 
 /// Timeout value in milliseconds.
 ///
-/// Used in task specifications and controller rules where
-/// an explicit time limit is required.
+/// Used in task specifications and controller rules where an explicit time limit is required.
 pub type TimeoutMs = u64;

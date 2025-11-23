@@ -1,5 +1,5 @@
 mod domain;
-pub use domain::{Env, KeyValue, Slot, TimeoutMs};
+pub use domain::{Env, Flag, KeyValue, Slot, TimeoutMs};
 
 mod error;
 pub use error::ModelError;
