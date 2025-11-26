@@ -4,7 +4,6 @@
 //! - owns a [`Supervisor`] instance and runs its event loop in the background;
 //! - uses [`RunnerRouter`] to build concrete tasks from [`CreateSpec`];
 //! - maps model-level specs / policies into controller specs and submits them.
-
 use std::{sync::Arc, time::Duration};
 
 use taskvisor::{
@@ -33,7 +32,6 @@ pub struct SupervisorApi {
 
 impl SupervisorApi {
     /// Create a supervisor with explicit configs and start its run loop in the background.
-    ///
     /// - `sup_cfg` — supervisor configuration;
     /// - `ctrl_cfg` — controller configuration;
     /// - `subscribers` — event subscribers to attach to the supervisor;

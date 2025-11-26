@@ -1,11 +1,11 @@
 use taskvisor::{TaskError, TaskFn, TaskRef};
+use tno_model::{
+    AdmissionStrategy, BackoffStrategy, CreateSpec, JitterStrategy, RestartStrategy, TaskKind,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
 use crate::logger::object::timezone::sync_local_offset;
-use tno_model::{
-    AdmissionStrategy, BackoffStrategy, CreateSpec, JitterStrategy, RestartStrategy, TaskKind,
-};
 
 /// Logical slot name used for timezone sync task.
 ///

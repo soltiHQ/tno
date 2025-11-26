@@ -3,6 +3,7 @@
 //! The router checks registered runners in order and delegates task construction to the first one that reports `supports(spec) == true`.
 use std::sync::Arc;
 
+use taskvisor::TaskRef;
 use tno_model::{CreateSpec, TaskKind};
 use tracing::{debug, instrument, trace};
 
@@ -60,7 +61,7 @@ impl RunnerRouter {
     ///
     /// `TaskKind::None` is not routable and must be used with [`SupervisorApi::submit_with_task`](crate::supervisor::SupervisorApi::submit_with_task).
     #[instrument(level = "debug", skip(self, spec), fields(kind = ?spec.kind, slot = ?spec.slot))]
-    pub fn build(&self, spec: &CreateSpec) -> Result<taskvisor::TaskRef, CoreError> {
+    pub fn build(&self, spec: &CreateSpec) -> Result<TaskRef, CoreError> {
         trace!(spec = ?spec, "router received spec");
 
         if matches!(spec.kind, TaskKind::None) {
