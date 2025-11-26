@@ -33,8 +33,7 @@ impl RunnerRouter {
 
     /// Set a custom build context for all runners managed by this router.
     ///
-    /// This is typically used to inject shared dependencies (config,
-    /// observability, global handles, etc.) into runner instances.
+    /// This is typically used to inject shared dependencies (config, observability, global handles, etc.) into runner instances.
     #[inline]
     pub fn with_context(mut self, ctx: BuildContext) -> Self {
         self.ctx = ctx;
@@ -43,8 +42,7 @@ impl RunnerRouter {
 
     /// Register a new runner.
     ///
-    /// Runners are queried in the order they are registered; the first
-    /// one that reports `supports(spec) == true` will be used.
+    /// Runners are queried in the order they are registered; the first one that reports `supports(spec) == true` will be used.
     #[inline]
     pub fn register(&mut self, runner: Arc<dyn Runner>) {
         self.runners.push(runner);
@@ -76,5 +74,125 @@ impl RunnerRouter {
         let task = r.build_task(spec, &self.ctx).map_err(CoreError::from)?;
         debug!(runner = r.name(), "runner built task successfully");
         Ok(task)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runner::RunnerError;
+
+    use std::path::PathBuf;
+    use taskvisor::{TaskError, TaskFn};
+    use tno_model::{
+        AdmissionStrategy, BackoffStrategy, Env, Flag, JitterStrategy, RestartStrategy,
+    };
+    use tokio_util::sync::CancellationToken;
+
+    struct ExecOnlyRunner;
+
+    impl Runner for ExecOnlyRunner {
+        fn name(&self) -> &'static str {
+            "exec-only"
+        }
+
+        fn supports(&self, spec: &CreateSpec) -> bool {
+            matches!(spec.kind, TaskKind::Exec { .. })
+        }
+
+        fn build_task(
+            &self,
+            _spec: &CreateSpec,
+            _ctx: &BuildContext,
+        ) -> Result<TaskRef, RunnerError> {
+            let task = TaskFn::arc("test-exec-runner", |_ctx: CancellationToken| async move {
+                Ok::<(), TaskError>(())
+            });
+            Ok(task)
+        }
+    }
+
+    fn mk_backoff() -> BackoffStrategy {
+        BackoffStrategy {
+            jitter: JitterStrategy::Equal,
+            first_ms: 1_000,
+            max_ms: 5_000,
+            factor: 2.0,
+        }
+    }
+
+    fn mk_spec(kind: TaskKind) -> CreateSpec {
+        CreateSpec {
+            slot: "test-slot".to_string(),
+            kind,
+            timeout_ms: 10_000,
+            restart: RestartStrategy::default(),
+            backoff: mk_backoff(),
+            admission: AdmissionStrategy::DropIfRunning,
+        }
+    }
+
+    #[test]
+    fn build_fails_for_taskkind_none() {
+        let router = RunnerRouter::new();
+        let spec = mk_spec(TaskKind::None);
+
+        let res = router.build(&spec);
+
+        match res {
+            Err(CoreError::NoRunner(msg)) => {
+                assert!(
+                    msg.contains("TaskKind::None"),
+                    "unexpected NoRunner message: {msg}"
+                );
+            }
+            Ok(_) => panic!("expected CoreError::NoRunner for TaskKind::None, got Ok(..)"),
+            Err(e) => panic!("expected CoreError::NoRunner for TaskKind::None, got {e:?}"),
+        }
+    }
+
+    #[test]
+    fn build_uses_registered_runner_for_exec() {
+        let mut router = RunnerRouter::new();
+        router.register(Arc::new(ExecOnlyRunner));
+
+        let spec = mk_spec(TaskKind::Exec {
+            command: "echo".to_string(),
+            args: vec!["hello".into()],
+            env: Env::default(),
+            cwd: None,
+            fail_on_non_zero: Flag::default(),
+        });
+
+        let res = router.build(&spec);
+
+        match res {
+            Ok(_task) => {
+                // ok
+            }
+            Err(e) => panic!("expected Ok(TaskRef) for exec, got error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn build_fails_when_no_runner_supports_kind() {
+        let mut router = RunnerRouter::new();
+        router.register(Arc::new(ExecOnlyRunner));
+
+        let spec = mk_spec(TaskKind::Wasm {
+            module: PathBuf::from("mod.wasm"),
+            args: Vec::new(),
+            env: Env::default(),
+        });
+
+        let res = router.build(&spec);
+
+        match res {
+            Err(CoreError::NoRunner(kind)) => {
+                assert_eq!(kind, "wasm", "expected NoRunner(\"wasm\")");
+            }
+            Ok(_) => panic!("expected CoreError::NoRunner for wasm, got Ok(..)"),
+            Err(e) => panic!("expected CoreError::NoRunner for wasm, got {e:?}"),
+        }
     }
 }

@@ -32,10 +32,10 @@ pub struct SupervisorApi {
 
 impl SupervisorApi {
     /// Create a supervisor with explicit configs and start its run loop in the background.
-    /// - `sup_cfg` — supervisor configuration;
-    /// - `ctrl_cfg` — controller configuration;
+    /// - `sup_cfg`     — supervisor configuration;
+    /// - `ctrl_cfg`    — controller configuration;
     /// - `subscribers` — event subscribers to attach to the supervisor;
-    /// - `router` — runner router [`tno_model::TaskKind`].
+    /// - `router`      — runner router [`tno_model::TaskKind`].
     ///
     /// The supervisor run loop is spawned on the current Tokio runtime.
     /// This method waits until the supervisor reports readiness before returning.
@@ -110,5 +110,91 @@ impl SupervisorApi {
             .submit(controller_spec)
             .await
             .map_err(|e| CoreError::Supervisor(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use taskvisor::{TaskError, TaskFn};
+    use tno_model::{
+        AdmissionStrategy, BackoffStrategy, JitterStrategy, RestartStrategy, TaskKind,
+    };
+    use tokio_util::sync::CancellationToken;
+
+    fn mk_backoff() -> BackoffStrategy {
+        BackoffStrategy {
+            jitter: JitterStrategy::Equal,
+            first_ms: 1_000,
+            max_ms: 5_000,
+            factor: 2.0,
+        }
+    }
+
+    #[tokio::test]
+    async fn submit_with_task_succeeds_for_simple_task() {
+        let router = RunnerRouter::new();
+        let api = SupervisorApi::new(
+            SupervisorConfig::default(),
+            ControllerConfig::default(),
+            Vec::new(),
+            router,
+        )
+        .await
+        .expect("failed to create SupervisorApi");
+
+        // Простейшая задача, которая сразу успешно завершается.
+        let task: TaskRef = TaskFn::arc("test-task", |_ctx: CancellationToken| async move {
+            Ok::<(), TaskError>(())
+        });
+
+        let policy = TaskPolicy::new(
+            "test-slot".to_string(),
+            1_000,
+            RestartStrategy::Never,
+            mk_backoff(),
+            AdmissionStrategy::DropIfRunning,
+        );
+
+        let res = api.submit_with_task(task, &policy).await;
+        if let Err(e) = res {
+            panic!("expected Ok(()), got error: {e:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn submit_rejects_taskkind_none() {
+        let router = RunnerRouter::new();
+        let api = SupervisorApi::new(
+            SupervisorConfig::default(),
+            ControllerConfig::default(),
+            Vec::new(),
+            router,
+        )
+        .await
+        .expect("failed to create SupervisorApi");
+
+        let spec = CreateSpec {
+            slot: "test-slot-none".to_string(),
+            kind: TaskKind::None,
+            timeout_ms: 1_000,
+            restart: RestartStrategy::Never,
+            backoff: mk_backoff(),
+            admission: AdmissionStrategy::DropIfRunning,
+        };
+
+        let res = api.submit(&spec).await;
+
+        match res {
+            Err(CoreError::NoRunner(msg)) => {
+                assert!(
+                    msg.contains("TaskKind::None"),
+                    "unexpected NoRunner message: {msg}"
+                );
+            }
+            Ok(()) => panic!("expected error for TaskKind::None, got Ok(())"),
+            Err(e) => panic!("expected CoreError::NoRunner, got {e:?}"),
+        }
     }
 }

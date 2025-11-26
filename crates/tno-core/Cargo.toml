@@ -13,3 +13,6 @@ tracing = { workspace = true }
 tokio = { workspace = true }
 
 tno-model = { path = "../tno-model" }
+
+[dev-dependencies]
+tokio-util = { workspace = true }
