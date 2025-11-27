@@ -109,15 +109,18 @@ tasks:
           CMD: "test --all --all-features"
 
   cargo/docs:
-    desc: Run 'rustdoc'.
+    desc: Run 'rustdoc' for specific crate.
     silent: true
+    requires:
+      vars: [ CRATE ]
     cmds:
       - task: _cargo/tool
         vars:
           CMD: >-
-            +nightly rustdoc --lib -Zrustdoc-map --features "logging controller"
-            -Zunstable-options -Zrustdoc-scrape-examples
+            +nightly rustdoc --lib --manifest-path crates/{{.CRATE}}/Cargo.toml --all-features
+            -Zrustdoc-map -Zunstable-options -Zrustdoc-scrape-examples
             --config 'build.rustdocflags=["--cfg","docsrs","-Z","unstable-options","--cap-lints","warn"]'
+          MOUNT_DIR: "."
 
   cargo/audit:
     desc: Run 'audit'.

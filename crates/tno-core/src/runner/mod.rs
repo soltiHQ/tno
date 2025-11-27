@@ -15,8 +15,6 @@ use tno_model::CreateSpec;
 /// A runner is responsible for:
 /// - deciding whether it can handle a given [`CreateSpec`] (`supports`)
 /// - building a concrete [`TaskRef`] that the supervisor can execute (`build_task`)
-///
-/// Runners are typically registered in a [`RunnerRouter`] and selected based on `supports(spec)`.
 pub trait Runner: Send + Sync {
     /// Runner name used in logs and diagnostics.
     fn name(&self) -> &'static str;
