@@ -1,75 +1,77 @@
-use std::sync::Arc;
-use std::time::Duration;
-use tno_core::{RunnerRouter, SupervisorApi};
-use tno_exec::prelude::*;
-//use tno_exec::proc::ProcConfig;
-use tno_model::{
-    AdmissionStrategy, BackoffStrategy, CreateSpec, JitterStrategy, RestartStrategy, TaskKind,
-};
-use tno_observe::*;
+use std::{sync::Arc, time::Duration};
+
 use tracing::info;
+
+// tno-core: high-level API вокруг taskvisor
+use tno_core::{RunnerRouter, SupervisorApi, TaskPolicy};
+
+// tno-exec: раннер для Subprocess
+use tno_exec::subprocess::SubprocessRunner;
+
+// tno-observe: логгер + internal timezone-задача
+use tno_observe::{init_logger, LoggerConfig, LoggerLevel, Subscriber, timezone_sync};
+
+use taskvisor::{ControllerConfig, SupervisorConfig, Subscribe};
+
+use tno_model::{
+    AdmissionStrategy, BackoffStrategy, CreateSpec, Env, Flag, JitterStrategy,
+    RestartStrategy, TaskKind,
+};
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
-    // 1) Логгер (text по умолчанию; уровень берётся из cfg.level или RUST_LOG)
+    // 1) Логгер
     let mut cfg = LoggerConfig::default();
-    cfg.level = tno_observe::LoggerLevel::new("debug")?;
-
+    cfg.level = LoggerLevel::new("debug")?;
     init_logger(&cfg)?;
-    info!("after log");
+    info!("logger initialized");
 
-    let journal = Arc::new(Subscriber::default()) as Arc<dyn taskvisor::Subscribe>;
-    let subscribers: Vec<Arc<dyn taskvisor::Subscribe>> =
-        vec![Arc::new(Subscriber::default()) as Arc<dyn taskvisor::Subscribe>];
-    // 2) Готовим runner: "ls /tmp"
-    // let runner = ProcRunner::new(ProcConfig {
-    //     program: "top".into(),
-    //     args: vec![],
-    //     env: vec![], // можно добавить пары ("KEY".into(), "VALUE".into())
-    //     cwd: None,   // можно задать рабочую директорию
-    //     fail_on_non_zero: true,
-    // });
-    info!("after runner");
+    // 2) Подписчики на события
+    let subscribers: Vec<Arc<dyn Subscribe>> = vec![Arc::new(Subscriber::default())];
 
-    // 3) Регистрируем runner в роутере
+    // 3) Роутер + регистрация subprocess-runner
     let mut router = RunnerRouter::new();
-    // router.register(Arc::new(runner));
+    router.register(Arc::new(SubprocessRunner::new()));
 
     // 4) Поднимаем SupervisorApi
     let api = SupervisorApi::new(
-        taskvisor::SupervisorConfig::default(),
-        taskvisor::ControllerConfig::default(),
+        SupervisorConfig::default(),
+        ControllerConfig::default(),
         subscribers,
         router,
     )
-    .await?;
+        .await?;
 
-    // 5) Спека на задачу (TaskKind::Exec)
-    // let spec = CreateSpec {
-    //     slot: "demo".into(),
-    //     kind: TaskKind::Exec,
-    //     admission: AdmissionStrategy::Replace,
-    //     restart: RestartStrategy::Always { interval_ms: None },
-    //     backoff: BackoffStrategy {
-    //         first_ms: 5000, // базовая задержка после фейла
-    //         max_ms: 30_000,
-    //         factor: 2.0,
-    //         jitter: JitterStrategy::Full, // или None, чтобы не получать 0
-    //     },
-    //     timeout_ms: 3_000, // 10s, чтобы демо не зависало
-    // };
+    // 5) Internal timezone-sync задача через submit_with_task
+    let (tz_task, tz_spec) = timezone_sync();
+    let tz_policy = TaskPolicy::from_spec(&tz_spec);
+    api.submit_with_task(tz_task, &tz_policy).await?;
 
-    // 6) Сабмитим
-    //api.submit(&spec).await?;
-    let (task, spec) = tno_observe::timezone_sync();
-    let policy = tno_core::TaskPolicy::from_spec(&spec);
+    // 6) Обычная задача: `ls /tmp` через CreateSpec + TaskKind::Subprocess
+    let ls_spec = CreateSpec {
+        slot: "demo-ls-tmp".to_string(),
+        kind: TaskKind::Subprocess {
+            command: "ls".into(),
+            args: vec!["/tmp".into()],
+            env: Env::default(),
+            cwd: None,
+            fail_on_non_zero: Flag::enabled(),
+        },
+        timeout_ms: 5_000,
+        restart: RestartStrategy::Never,
+        backoff: BackoffStrategy {
+            jitter: JitterStrategy::None,
+            first_ms: 0,
+            max_ms: 0,
+            factor: 1.0,
+        },
+        admission: AdmissionStrategy::DropIfRunning,
+    };
 
-    api.submit_with_task(task, &policy).await?;
+    api.submit(&ls_spec).await?;
 
-    //
-    // Небольшая пауза, чтобы увидеть вывод команды в логах/консоли процесса
-    // (taskvisor выполняет задачу асинхронно)
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    // Небольшая пауза, чтобы увидеть вывод/логи
+    tokio::time::sleep(Duration::from_secs(5)).await;
 
     Ok(())
 }
