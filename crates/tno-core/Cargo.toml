@@ -1,0 +1,18 @@
+[package]
+name = "tno-core"
+version = "0.0.1"
+edition = "2024"
+
+[features]
+default = []
+
+[dependencies]
+taskvisor = { workspace = true, features = ["controller"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+
+tno-model = { path = "../tno-model" }
+
+[dev-dependencies]
+tokio-util = { workspace = true }
