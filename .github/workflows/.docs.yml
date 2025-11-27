@@ -1,7 +1,6 @@
 name: Docs
 
-on:
-  workflow_call:
+on: { workflow_call: {} }
 
 jobs:
   docs:
