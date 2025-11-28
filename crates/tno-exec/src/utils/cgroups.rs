@@ -22,7 +22,6 @@ pub struct CpuMax {
     ///
     /// `None` -> unlimited.
     pub quota: Option<u64>,
-
     /// Period in microseconds (usually 100_000 = 100ms).
     pub period: u64,
 }

@@ -11,7 +11,7 @@
 use tokio::process::Command;
 use tracing::warn;
 
-/// Declarative rlimit-based for a child process.
+/// Declarative rlimit-based config for a child process.
 ///
 /// All fields are optional:
 /// - `None` means "no explicit limit" for that resource.
@@ -26,13 +26,12 @@ pub struct RlimitConfig {
     ///
     /// `None` leaves the OS / parent limits unchanged.
     pub max_open_files: Option<u64>,
-
     /// Maximum size of created files in bytes (`RLIMIT_FSIZE`).
     ///
-    /// When the process attempts to grow a file beyond this limit, the kernel typically delivers `SIGXFSZ` and the process terminates.
+    /// When the process attempts to grow a file beyond this limit, the kernel typically delivers
+    /// `SIGXFSZ` and the process terminates.
     /// `None` leaves the OS / parent limits unchanged.
     pub max_file_size_bytes: Option<u64>,
-
     /// Disable core dumps (`RLIMIT_CORE = 0`) when set to `true`.
     ///
     /// This prevents large core files from being written for failing tasks.
@@ -45,8 +44,8 @@ impl RlimitConfig {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.max_open_files.is_none()
-            && !self.disable_core_dumps
             && self.max_file_size_bytes.is_none()
+            && !self.disable_core_dumps
     }
 }
 
@@ -69,7 +68,6 @@ pub fn attach_rlimits(cmd: &mut Command, config: &RlimitConfig) {
     #[cfg(not(unix))]
     {
         warn!(
-            target: "tno_exec::limits",
             ?config,
             "rlimit-based process limits requested on a non-Unix OS; limits will be ignored"
         );
@@ -79,11 +77,9 @@ pub fn attach_rlimits(cmd: &mut Command, config: &RlimitConfig) {
 #[cfg(unix)]
 mod unix_impl {
     use super::RlimitConfig;
-
     use std::io;
-
-    use libc;
     use tokio::process::Command;
+    use libc;
 
     pub fn attach_rlimits(cmd: &mut Command, config: &RlimitConfig) {
         if config.is_empty() {
@@ -97,22 +93,44 @@ mod unix_impl {
         unsafe {
             cmd.pre_exec(move || {
                 if let Some(nofile) = max_open_files {
-                    apply_rlimit(libc::RLIMIT_NOFILE, nofile)?;
+                    apply_rlimit(libc::RLIMIT_NOFILE as libc::c_int, nofile)?;
                 }
                 if let Some(fsize) = max_file_size_bytes {
-                    apply_rlimit(libc::RLIMIT_FSIZE, fsize)?;
+                    apply_rlimit(libc::RLIMIT_FSIZE as libc::c_int, fsize)?;
                 }
                 if disable_core_dumps {
                     let rlim = libc::rlimit {
                         rlim_cur: 0 as libc::rlim_t,
                         rlim_max: 0 as libc::rlim_t,
                     };
-                    if libc::setrlimit(libc::RLIMIT_CORE, &rlim) != 0 {
+                    let rc = unsafe {
+                        setrlimit_compat(libc::RLIMIT_CORE as libc::c_int, &rlim)
+                    };
+                    if rc != 0 {
                         return Err(io::Error::last_os_error());
                     }
                 }
                 Ok(())
             });
+        }
+    }
+
+    /// Small compatibility shim around `libc::setrlimit`:
+    /// - on Linux: it expects `__rlimit_resource_t` (u32);
+    /// - on other Unix (e.g. macOS): it expects `c_int`.
+    #[inline]
+    unsafe fn setrlimit_compat(
+        resource: libc::c_int,
+        rlim: &libc::rlimit,
+    ) -> libc::c_int {
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        {
+            libc::setrlimit(resource as libc::__rlimit_resource_t, rlim)
+        }
+
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        {
+            libc::setrlimit(resource, rlim)
         }
     }
 
@@ -122,7 +140,7 @@ mod unix_impl {
             rlim_max: value as libc::rlim_t,
         };
 
-        let rc = unsafe { libc::setrlimit(resource, &rlim) };
+        let rc = unsafe { setrlimit_compat(resource, &rlim) };
         if rc != 0 {
             Err(io::Error::last_os_error())
         } else {
@@ -130,10 +148,6 @@ mod unix_impl {
         }
     }
 }
-
-// ============================================================================
-// Tests
-// ============================================================================
 
 #[cfg(test)]
 mod tests {
