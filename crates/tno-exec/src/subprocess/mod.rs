@@ -1,8 +1,11 @@
 //! Subprocess runner for `tno_model::TaskKind::Subprocess`.
+mod backend;
+pub use backend::{SubprocessBackendConfig, SubprocessIsolation, SubprocessLimits};
 
 mod config;
-mod runner;
+pub use config::SubprocessConfig;
 
+mod runner;
 pub use runner::SubprocessRunner;
 
 use crate::ExecError;
