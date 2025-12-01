@@ -197,7 +197,7 @@ mod tests {
             pids: Some(32),
         };
         let mut cmd = Command::new("true");
-        let r = attach_cgroup_limits(&mut cmd, "tno-test-cg", &limits);
+        let r = attach_cgroup(&mut cmd, "tno-test-cg", &limits);
         assert!(r.is_ok());
     }
 
