@@ -5,9 +5,11 @@ use tracing::trace;
 
 use crate::ExecError;
 
-/// Internal configuration for a subprocess.
+/// Task configuration for a subprocess.
+///
+/// Describe parameters for task execution via subprocess.
 #[derive(Debug, Clone)]
-pub struct SubprocessConfig {
+pub struct SubprocessTaskConfig {
     /// End-to-End log identifier.
     pub(crate) run_id: String,
     /// Command to execute (e.g. `"ls"`, `"/usr/bin/python"`).
@@ -26,7 +28,7 @@ pub struct SubprocessConfig {
     pub(crate) fail_on_non_zero: Flag,
 }
 
-impl SubprocessConfig {
+impl SubprocessTaskConfig {
     /// Validate the configuration before spawning a subprocess.
     ///
     /// Rules:
@@ -53,11 +55,11 @@ impl SubprocessConfig {
     }
 }
 
-impl fmt::Display for SubprocessConfig {
+impl fmt::Display for SubprocessTaskConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SubprocessConfig(cmd='{}', args={}, env={}, cwd={:?}, fail_on_non_zero={})",
+            "SubprocessTaskConfig(cmd='{}', args={}, env={}, cwd={:?}, fail_on_non_zero={})",
             self.command,
             self.args.len(),
             self.env.len(),

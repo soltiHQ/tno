@@ -1,6 +1,9 @@
 use tokio::process::Command;
+use tracing::trace;
 
+use crate::ExecError::InvalidRunnerConfig;
 use crate::utils::{CgroupLimits, RlimitConfig, SecurityConfig};
+use crate::{attach_cgroup_limits, attach_rlimits, attach_security};
 
 /// Low-level OS/kernel configuration for subprocess execution.
 ///
@@ -9,19 +12,35 @@ use crate::utils::{CgroupLimits, RlimitConfig, SecurityConfig};
 #[derive(Debug, Clone, Default)]
 pub struct SubprocessBackendConfig {
     /// POSIX rlimit-based resource limits.
-    pub rlimits: Option<RlimitConfig>,
-
+    rlimits: Option<RlimitConfig>,
     /// Linux cgroup v2 resource limits.
-    pub cgroups: Option<CgroupLimits>,
-
+    cgroups: Option<CgroupLimits>,
     /// Security hardening.
-    pub security: Option<SecurityConfig>,
+    security: Option<SecurityConfig>,
 }
 
 impl SubprocessBackendConfig {
     /// Create an empty backend config (no limits).
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set rlimits.
+    pub fn with_rlimits(mut self, rlimits: RlimitConfig) -> Self {
+        self.rlimits = Some(rlimits);
+        self
+    }
+
+    /// Set cgroup limits.
+    pub fn with_cgroups(mut self, cgroups: CgroupLimits) -> Self {
+        self.cgroups = Some(cgroups);
+        self
+    }
+
+    /// Set security hardening.
+    pub fn with_security(mut self, security: SecurityConfig) -> Self {
+        self.security = Some(security);
+        self
     }
 
     /// Check if any backend features are configured.
@@ -34,23 +53,19 @@ impl SubprocessBackendConfig {
         if let Some(cgroups) = &self.cgroups {
             if let Some(mem) = cgroups.memory {
                 if mem == 0 {
-                    return Err(crate::ExecError::InvalidRunnerConfig(
-                        "cgroups.memory cannot be zero".into(),
-                    ));
+                    return Err(InvalidRunnerConfig("cgroups.memory cannot be zero".into()));
                 }
             }
             if let Some(pids) = cgroups.pids {
                 if pids == 0 {
-                    return Err(crate::ExecError::InvalidRunnerConfig(
-                        "cgroups.pids cannot be zero".into(),
-                    ));
+                    return Err(InvalidRunnerConfig("cgroups.pids cannot be zero".into()));
                 }
             }
         }
         if let Some(rlimits) = &self.rlimits {
             if let Some(fsize) = rlimits.max_file_size_bytes {
                 if fsize == 0 {
-                    return Err(crate::ExecError::InvalidRunnerConfig(
+                    return Err(InvalidRunnerConfig(
                         "rlimits.max_file_size_bytes cannot be zero".into(),
                     ));
                 }
@@ -67,19 +82,33 @@ impl SubprocessBackendConfig {
     /// - security policies
     ///
     /// Call this immediately before spawning the subprocess.
-    pub fn apply_to_command(&self, cmd: &mut Command, cgroup_name: &str) -> Result<(), crate::ExecError> {
+    pub fn apply_to_command(
+        &self,
+        cmd: &mut Command,
+        cgroup_name: &str,
+    ) -> Result<(), crate::ExecError> {
         if self.is_empty() {
+            trace!("subprocess backend: nothing to apply (empty config)");
             return Ok(());
         }
 
         if let Some(rlimits) = &self.rlimits {
-            crate::utils::attach_rlimits(cmd, rlimits);
+            trace!("subprocess backend: nothing to apply (empty config)");
+            attach_rlimits(cmd, rlimits);
         }
         if let Some(cgroups) = &self.cgroups {
-            crate::utils::attach_cgroup_limits(cmd, cgroup_name, cgroups)?;
+            trace!(
+                "subprocess backend: attaching cgroup limits: {:?} (group={})",
+                cgroups, cgroup_name
+            );
+            attach_cgroup_limits(cmd, cgroup_name, cgroups)?;
         }
         if let Some(security) = &self.security {
-            crate::utils::attach_security(cmd, security);
+            trace!(
+                "subprocess backend: attaching security config: {:?}",
+                security
+            );
+            attach_security(cmd, security);
         }
         Ok(())
     }

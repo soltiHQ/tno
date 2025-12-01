@@ -1,8 +1,8 @@
 //! Subprocess runner for `tno_model::TaskKind::Subprocess`.
 
 mod backend;
-mod task;
 mod runner;
+mod task;
 
 pub use runner::SubprocessRunner;
 

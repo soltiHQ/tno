@@ -6,7 +6,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace};
 
 use crate::subprocess::backend::SubprocessBackendConfig;
-use crate::subprocess::task::SubprocessConfig;
+use crate::subprocess::task::SubprocessTaskConfig;
 use tno_core::{BuildContext, Runner, RunnerError};
 use tno_model::{CreateSpec, TaskKind};
 
@@ -44,7 +44,7 @@ impl SubprocessRunner {
         &self,
         spec: &CreateSpec,
         ctx: &BuildContext,
-    ) -> Result<SubprocessConfig, RunnerError> {
+    ) -> Result<SubprocessTaskConfig, RunnerError> {
         let cfg = match &spec.kind {
             TaskKind::Subprocess {
                 command,
@@ -52,7 +52,7 @@ impl SubprocessRunner {
                 env,
                 cwd,
                 fail_on_non_zero,
-            } => SubprocessConfig {
+            } => SubprocessTaskConfig {
                 run_id: self.build_run_id(&spec.slot),
                 command: command.clone(),
                 args: args.clone(),
