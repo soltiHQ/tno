@@ -241,10 +241,7 @@ mod unix_impl {
 
     /// Compatibility shim for getrlimit
     #[inline]
-    unsafe fn getrlimit_compat(
-        resource: libc::c_int,
-        rlim: *mut libc::rlimit,
-    ) -> libc::c_int {
+    unsafe fn getrlimit_compat(resource: libc::c_int, rlim: *mut libc::rlimit) -> libc::c_int {
         #[cfg(any(target_os = "linux", target_os = "android"))]
         {
             libc::getrlimit(resource as libc::__rlimit_resource_t, rlim)
@@ -258,10 +255,7 @@ mod unix_impl {
 
     /// Compatibility shim for setrlimit
     #[inline]
-    unsafe fn setrlimit_compat(
-        resource: libc::c_int,
-        rlim: *const libc::rlimit,
-    ) -> libc::c_int {
+    unsafe fn setrlimit_compat(resource: libc::c_int, rlim: *const libc::rlimit) -> libc::c_int {
         #[cfg(any(target_os = "linux", target_os = "android"))]
         {
             libc::setrlimit(resource as libc::__rlimit_resource_t, rlim)

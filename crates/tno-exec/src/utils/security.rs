@@ -228,9 +228,7 @@ mod linux_impl {
                 if cfg.drop_all_caps {
                     // Capability operations are non-fatal - we log to stderr and continue
                     if let Err(e) = drop_capabilities(&cfg.keep_caps) {
-                        pre_exec_log(
-                            b"tno-exec: failed to drop capabilities (continuing): ",
-                        );
+                        pre_exec_log(b"tno-exec: failed to drop capabilities (continuing): ");
                         if let Some(code) = e.raw_os_error() {
                             pre_exec_log_errno(code);
                         }

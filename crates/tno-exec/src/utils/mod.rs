@@ -3,7 +3,7 @@ pub use cgroups::*;
 
 mod limits;
 pub use limits::*;
-mod security;
 mod log;
+mod security;
 
 pub use security::*;
