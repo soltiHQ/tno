@@ -1,7 +1,6 @@
 use std::{fmt, path::PathBuf};
 
 use tno_model::{Env, Flag};
-use tracing::trace;
 
 use crate::ExecError;
 
