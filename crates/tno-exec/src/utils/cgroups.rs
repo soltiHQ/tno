@@ -1,20 +1,19 @@
-//! cgroup v2 resource limits for subprocess-based runners (Linux-only).
+//! cgroup v2 resource limits for subprocess-based runners.
 //!
 //! ## Overview
 //!
 //! This module exposes structured API for applying cgroup v2 limits to child processes created via `tokio::process::Command`.
-//! - On **Linux with cgroup v2**, limits are applied by creating a dedicated cgroup under `/sys/fs/cgroup/<group_name>`
+//! - On **Linux with cgroup v2**, limits are applied by creating a cgroup and placing the child PID via `pre_exec` hook.
 //! - On **non-Linux platforms**, limits are ignored: a warning is emitted and the call returns `Ok(())`.
 use tokio::process::Command;
 
 use crate::ExecError;
 
 /// CPU limit (`cpu.max`) for cgroup v2.
+/// - `<quota> <period>` sets a quota/period time window.
 #[derive(Debug, Clone, Copy)]
 pub struct CpuMax {
-    /// CPU quota in microseconds for each period.
-    ///
-    /// `None` -> unlimited.
+    /// CPU quota in microseconds for each period. (`None` is unlimited).
     pub quota: Option<u64>,
     /// Period in microseconds (usually 100_000 = 100ms).
     pub period: u64,
@@ -51,7 +50,7 @@ impl CgroupLimits {
 }
 
 /// Attach cgroup v2 limits to a `tokio::process::Command`.
-pub fn attach_cgroup_limits(
+pub fn attach_cgroup(
     cmd: &mut Command,
     name: &str,
     limits: &CgroupLimits,
@@ -64,7 +63,6 @@ pub fn attach_cgroup_limits(
     {
         linux_impl::attach(cmd, name, limits);
     }
-
     #[cfg(not(target_os = "linux"))]
     {
         tracing::warn!(
@@ -79,6 +77,7 @@ pub fn attach_cgroup_limits(
 #[cfg(target_os = "linux")]
 mod linux_impl {
     use super::{CgroupLimits, CpuMax};
+    use crate::utils::log::{pre_exec_log, pre_exec_log_errno};
 
     use std::{
         fs,
@@ -87,8 +86,6 @@ mod linux_impl {
     };
 
     use tokio::process::Command;
-
-    use crate::utils::log::{pre_exec_log, pre_exec_log_errno};
 
     const CONTROLLERS_FILE: &str = "cgroup.controllers";
     const CGROUP_ROOT: &str = "/sys/fs/cgroup";
@@ -105,27 +102,30 @@ mod linux_impl {
                     );
                     return Ok(());
                 }
-
                 let cg_dir = Path::new(CGROUP_ROOT).join(&name);
 
                 if let Err(e) = fs::create_dir_all(&cg_dir) {
-                    pre_exec_log(b"tno-exec: failed to create cgroup directory; limits will be ignored\n");
+                    pre_exec_log(
+                        b"tno-exec: failed to create cgroup directory; limits will be ignored\n",
+                    );
                     if let Some(code) = e.raw_os_error() {
                         pre_exec_log_errno(code);
                     }
                     return Ok(());
                 }
-
                 if let Err(e) = apply_limits(&cg_dir, &limits) {
-                    pre_exec_log(b"tno-exec: failed to apply cgroup limits; limits will be ignored\n");
+                    pre_exec_log(
+                        b"tno-exec: failed to apply cgroup limits; limits will be ignored\n",
+                    );
                     if let Some(code) = e.raw_os_error() {
                         pre_exec_log_errno(code);
                     }
                     return Ok(());
                 }
-
                 if let Err(e) = add_self_to_cgroup(&cg_dir) {
-                    pre_exec_log(b"tno-exec: failed to attach PID to cgroup; limits will be ignored\n");
+                    pre_exec_log(
+                        b"tno-exec: failed to attach PID to cgroup; limits will be ignored\n",
+                    );
                     if let Some(code) = e.raw_os_error() {
                         pre_exec_log_errno(code);
                     }
@@ -144,22 +144,19 @@ mod linux_impl {
         if let Some(cpu) = limits.cpu {
             write_cpu_max(dir.join("cpu.max"), cpu)?;
         }
-
         if let Some(mem) = limits.memory {
             write_limit(dir.join("memory.max"), mem)?;
         }
-
         if let Some(pids) = limits.pids {
             write_limit(dir.join("pids.max"), pids)?;
         }
-
         Ok(())
     }
 
     fn write_cpu_max(path: PathBuf, limit: CpuMax) -> io::Result<()> {
         let content = match limit.quota {
             None => format!("max {}\n", limit.period),
-            Some(q) => format!("{} {}\n", q, limit.period),
+            Some(q) => format!("{q} {}\n", limit.period),
         };
         fs::write(path, content)
     }
@@ -187,21 +184,18 @@ mod tests {
         assert!(limits.is_empty());
 
         let mut cmd = Command::new("sh");
-        let r = attach_cgroup_limits(&mut cmd, "cg-empty", &limits);
+        let r = attach_cgroup(&mut cmd, "cg-empty", &limits);
         assert!(r.is_ok());
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn attach_limited_group_does_not_error() {
-        // We only validate that attach() itself is non-failing.
-        // Actual cgroup mount presence is runtime-dependent.
         let limits = CgroupLimits {
             cpu: Some(CpuMax::default()),
             memory: Some(128 * 1024 * 1024),
             pids: Some(32),
         };
-
         let mut cmd = Command::new("true");
         let r = attach_cgroup_limits(&mut cmd, "tno-test-cg", &limits);
         assert!(r.is_ok());
@@ -215,9 +209,8 @@ mod tests {
             memory: Some(1),
             pids: Some(1),
         };
-
         let mut cmd = Command::new("true");
-        let r = attach_cgroup_limits(&mut cmd, "cg-any", &limits);
+        let r = attach_cgroup(&mut cmd, "cg-any", &limits);
         assert!(
             r.is_ok(),
             "non-Linux must ignore limits but still return Ok"
