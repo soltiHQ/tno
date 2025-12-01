@@ -7,18 +7,36 @@ use tracing::{debug, trace};
 
 use tno_core::{BuildContext, Runner, RunnerError};
 use tno_model::{CreateSpec, TaskKind};
-
+use crate::subprocess::backend::SubprocessBackendConfig;
 use crate::subprocess::config::SubprocessConfig;
 
 /// Runner that executes `TaskKind::Subprocess` as OS subprocesses.
 pub struct SubprocessRunner {
     name: &'static str,
+    /// Backend configuration applied to all tasks spawned by this runner.
+    ///
+    /// Set once during runner initialization/registration.
+    backend: Option<SubprocessBackendConfig>,
 }
 
 impl SubprocessRunner {
     /// Create a new subprocess with name.
     pub fn new(name: &'static str) -> Self {
-        Self { name }
+        Self {
+            name,
+            backend: None,
+        }
+    }
+
+    /// Create a subprocess runner with explicit backend configuration.
+    ///
+    /// Backend settings (rlimits, cgroups, security) will be applied to
+    /// all tasks spawned by this runner instance.
+    pub fn with_backend(name: &'static str, backend: SubprocessBackendConfig) -> Self {
+        Self {
+            name,
+            backend: Some(backend),
+        }
     }
 
     /// Build normalized subprocess configuration from `CreateSpec` + `BuildContext`.
@@ -68,6 +86,7 @@ impl Runner for SubprocessRunner {
 
     fn build_task(&self, spec: &CreateSpec, ctx: &BuildContext) -> Result<TaskRef, RunnerError> {
         let cfg = self.build_config(spec, ctx)?;
+        let backend = self.backend.clone();
 
         trace!(
             slot = %spec.slot.clone(),
@@ -77,6 +96,7 @@ impl Runner for SubprocessRunner {
 
         let task: TaskRef = TaskFn::arc(cfg.run_id.clone(), move |cancel: CancellationToken| {
             let cfg = cfg.clone();
+            let backend = backend.clone();
 
             async move {
                 trace!(
@@ -98,6 +118,14 @@ impl Runner for SubprocessRunner {
                 }
                 cmd.stdout(Stdio::piped());
                 cmd.stderr(Stdio::inherit());
+
+                if let Some(backend) = &backend {
+                    backend
+                        .apply_to_command(&mut cmd, &cfg.run_id)
+                        .map_err(|e| TaskError::Fatal {
+                            reason: format!("backend config failed: {e}"),
+                        })?;
+                }
 
                 let mut child = cmd.spawn().map_err(|e| TaskError::Fatal {
                     reason: format!("spawn failed: {e}"),
