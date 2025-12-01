@@ -1,16 +1,16 @@
 //! Subprocess runner for `tno_model::TaskKind::Subprocess`.
 
-mod config;
-mod runner;
 mod backend;
+mod task;
+mod runner;
 
 pub use runner::SubprocessRunner;
 
 use crate::ExecError;
+use crate::subprocess::backend::SubprocessBackendConfig;
 use std::sync::Arc;
 use tno_core::RunnerRouter;
 use tno_model::{LABEL_RUNNER_TAG, Labels};
-use crate::subprocess::backend::SubprocessBackendConfig;
 
 /// Register a subprocess runner with default settings (no backend limits).
 pub fn register_subprocess_runner(
@@ -46,7 +46,9 @@ pub fn register_subprocess_runner_with_backend(
     }
 
     // Validate backend config at registration time
-    backend.validate().map_err(|e| ExecError::InvalidSpec(e.to_string()))?;
+    backend
+        .validate()
+        .map_err(|e| ExecError::InvalidSpec(e.to_string()))?;
 
     let mut labels = Labels::new();
     labels.insert(LABEL_RUNNER_TAG, name);

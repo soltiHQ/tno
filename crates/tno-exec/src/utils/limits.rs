@@ -185,7 +185,11 @@ mod unix_impl {
     /// Write a static message to stderr using only libc (safe for pre_exec).
     fn log_to_stderr(msg: &[u8]) {
         unsafe {
-            libc::write(libc::STDERR_FILENO, msg.as_ptr() as *const libc::c_void, msg.len());
+            libc::write(
+                libc::STDERR_FILENO,
+                msg.as_ptr() as *const libc::c_void,
+                msg.len(),
+            );
         }
     }
 
@@ -218,16 +222,17 @@ mod unix_impl {
                 buf[i..].as_ptr() as *const libc::c_void,
                 buf.len() - i,
             );
-            libc::write(libc::STDERR_FILENO, b"\n".as_ptr() as *const libc::c_void, 1);
+            libc::write(
+                libc::STDERR_FILENO,
+                b"\n".as_ptr() as *const libc::c_void,
+                1,
+            );
         }
     }
 
     /// Compatibility shim for getrlimit
     #[inline]
-    unsafe fn getrlimit_compat(
-        resource: libc::c_int,
-        rlim: *mut libc::rlimit,
-    ) -> libc::c_int {
+    unsafe fn getrlimit_compat(resource: libc::c_int, rlim: *mut libc::rlimit) -> libc::c_int {
         #[cfg(any(target_os = "linux", target_os = "android"))]
         {
             libc::getrlimit(resource as libc::__rlimit_resource_t, rlim)
@@ -241,10 +246,7 @@ mod unix_impl {
 
     /// Compatibility shim for setrlimit
     #[inline]
-    unsafe fn setrlimit_compat(
-        resource: libc::c_int,
-        rlim: *const libc::rlimit,
-    ) -> libc::c_int {
+    unsafe fn setrlimit_compat(resource: libc::c_int, rlim: *const libc::rlimit) -> libc::c_int {
         #[cfg(any(target_os = "linux", target_os = "android"))]
         {
             libc::setrlimit(resource as libc::__rlimit_resource_t, rlim)

@@ -11,6 +11,9 @@ pub enum ExecError {
     #[error("invalid specification: {0}")]
     InvalidSpec(String),
 
+    #[error("invalid runner configuration: {0}")]
+    InvalidRunnerConfig(String),
+
     #[error("spawn failed: {0}")]
     Spawn(String),
 
@@ -28,7 +31,4 @@ pub enum ExecError {
 
     #[error("duplicate runner-tag detected: runner with tag '{tag}' is already registered")]
     DuplicateRunnerTag { tag: String },
-
-    #[error("process limits are not supported on this OS (os={os})")]
-    UnsupportedLimits { os: String },
 }

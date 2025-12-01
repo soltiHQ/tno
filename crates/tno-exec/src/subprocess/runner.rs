@@ -5,10 +5,10 @@ use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace};
 
+use crate::subprocess::backend::SubprocessBackendConfig;
+use crate::subprocess::task::SubprocessConfig;
 use tno_core::{BuildContext, Runner, RunnerError};
 use tno_model::{CreateSpec, TaskKind};
-use crate::subprocess::backend::SubprocessBackendConfig;
-use crate::subprocess::config::SubprocessConfig;
 
 /// Runner that executes `TaskKind::Subprocess` as OS subprocesses.
 pub struct SubprocessRunner {

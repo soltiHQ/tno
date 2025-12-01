@@ -373,7 +373,11 @@ mod linux_impl {
     /// Write a static message to stderr using only libc (safe for pre_exec).
     fn log_to_stderr(msg: &[u8]) {
         unsafe {
-            libc::write(libc::STDERR_FILENO, msg.as_ptr() as *const libc::c_void, msg.len());
+            libc::write(
+                libc::STDERR_FILENO,
+                msg.as_ptr() as *const libc::c_void,
+                msg.len(),
+            );
         }
     }
 
@@ -406,7 +410,11 @@ mod linux_impl {
                 buf[i..].as_ptr() as *const libc::c_void,
                 buf.len() - i,
             );
-            libc::write(libc::STDERR_FILENO, b"\n".as_ptr() as *const libc::c_void, 1);
+            libc::write(
+                libc::STDERR_FILENO,
+                b"\n".as_ptr() as *const libc::c_void,
+                1,
+            );
         }
     }
 
