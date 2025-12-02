@@ -5,6 +5,7 @@ mod runner;
 pub use runner::SubprocessRunner;
 
 mod task;
+use crate::subprocess::backend::SubprocessBackendConfig;
 
 use std::sync::Arc;
 
@@ -12,7 +13,6 @@ use tno_core::RunnerRouter;
 use tno_model::{LABEL_RUNNER_TAG, Labels};
 
 use crate::ExecError;
-use crate::subprocess::backend::SubprocessBackendConfig;
 
 /// Register a subprocess runner with default settings.
 pub fn register_subprocess_runner(
