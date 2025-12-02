@@ -1,16 +1,21 @@
 //! Subprocess runner for `tno_model::TaskKind::Subprocess`.
+mod backend;
+pub use backend::SubprocessBackendConfig;
 
-mod config;
+mod task;
+pub use task::SubprocessTaskConfig;
+
 mod runner;
-
 pub use runner::SubprocessRunner;
 
-use crate::ExecError;
 use std::sync::Arc;
+
 use tno_core::RunnerRouter;
 use tno_model::{LABEL_RUNNER_TAG, Labels};
 
-/// Register the built-in subprocess runner in the given router.
+use crate::ExecError;
+
+/// Register a subprocess runner with default settings.
 pub fn register_subprocess_runner(
     router: &mut RunnerRouter,
     name: &'static str,
@@ -20,9 +25,31 @@ pub fn register_subprocess_runner(
             tag: name.to_string(),
         });
     }
+
     let mut labels = Labels::new();
     labels.insert(LABEL_RUNNER_TAG, name);
-
     router.register_with_labels(Arc::new(SubprocessRunner::new(name)), labels);
+    Ok(())
+}
+
+/// Register a subprocess runner with explicit runner configuration.
+pub fn register_subprocess_runner_with_backend(
+    router: &mut RunnerRouter,
+    name: &'static str,
+    backend: SubprocessBackendConfig,
+) -> Result<(), ExecError> {
+    if router.contains_runner_tag(name) {
+        return Err(ExecError::DuplicateRunnerTag {
+            tag: name.to_string(),
+        });
+    }
+    backend.validate()?;
+
+    let mut labels = Labels::new();
+    labels.insert(LABEL_RUNNER_TAG, name);
+    router.register_with_labels(
+        Arc::new(SubprocessRunner::with_config(name, backend)),
+        labels,
+    );
     Ok(())
 }
