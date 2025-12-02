@@ -72,9 +72,10 @@ mod linux_impl {
     use tokio::process::Command;
 
     const LINUX_CAPABILITY_VERSION_3: u32 = 0x2008_0522;
+    const PR_CAP_AMBIENT: libc::c_int = 47;
+    const PR_CAP_AMBIENT_RAISE: libc::c_ulong = 2;
     const PR_CAP_AMBIENT_CLEAR_ALL: libc::c_ulong = 4;
     const PR_SET_NO_NEW_PRIVS: libc::c_int = 38;
-    const PR_CAP_AMBIENT: libc::c_int = 47;
     const CAP_LAST_CAP: u32 = 63;
 
     pub fn attach(cmd: &mut Command, config: &SecurityConfig) {
@@ -122,6 +123,14 @@ mod linux_impl {
             let cap_value = cap.to_cap_value();
             let _ = raise_cap(cap_value, CapSet::Effective);
         }
+        for cap in keep_caps {
+            let cap_value = cap.to_cap_value();
+
+            // Only raise in ambient if it's in permitted and inheritable
+            // We ignore errors here - ambient might not be supported on older kernels,
+            // or the cap might not be in the required sets
+            let _ = raise_ambient_cap(cap_value);
+        }
         Ok(())
     }
 
@@ -132,6 +141,25 @@ mod linux_impl {
             let err = io::Error::last_os_error();
             if err.raw_os_error() != Some(libc::EINVAL) {
                 return Err(err);
+            }
+        }
+        Ok(())
+    }
+
+    /// Raise a capability in the ambient set.
+    ///
+    /// Returns `Ok(())` even if the operation fails.
+    /// Failures can happen on:
+    /// - Kernel < 4.3 (no ambient caps support)
+    /// - Cap not in permitted+inheritable
+    /// - EPERM if lacking CAP_SETPCAP
+    fn raise_ambient_cap(cap: u32) -> io::Result<()> {
+        let rc = unsafe { libc::prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, cap, 0, 0) };
+        if rc != 0 {
+            let err = io::Error::last_os_error();
+            match err.raw_os_error() {
+                Some(libc::EINVAL) | Some(libc::EPERM) => return Ok(()),
+                _ => return Err(err),
             }
         }
         Ok(())
