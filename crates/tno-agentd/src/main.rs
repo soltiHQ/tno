@@ -72,7 +72,8 @@ async fn main() -> anyhow::Result<()> {
                 period: 100_000,
             }),
 
-            memory: Some(64 * 1024 * 1024), pids: Some(16),
+            memory: Some(64 * 1024 * 1024),
+            pids: Some(16),
         })
         .with_security(SecurityConfig {
             drop_all_caps: true,
