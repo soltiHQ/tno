@@ -44,12 +44,12 @@ impl SubprocessBackendConfig {
     }
 
     /// Check if any backend features are configured.
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.rlimits.is_none() && self.cgroups.is_none() && self.security.is_none()
     }
 
     /// Validate the configuration.
-    pub fn validate(&self) -> Result<(), crate::ExecError> {
+    pub(crate) fn validate(&self) -> Result<(), crate::ExecError> {
         if let Some(cgroups) = &self.cgroups {
             if let Some(mem) = cgroups.memory
                 && mem == 0
@@ -73,6 +73,11 @@ impl SubprocessBackendConfig {
         Ok(())
     }
 
+    /// Check if cgroup limits are configured.
+    pub(crate) fn has_cgroups(&self) -> bool {
+        self.cgroups.is_some()
+    }
+
     /// Apply all configured backend features to a `tokio::process::Command`.
     ///
     /// This method mutates the command by attaching pre_exec hooks for:
@@ -81,7 +86,7 @@ impl SubprocessBackendConfig {
     /// - security policies
     ///
     /// Call this immediately before spawning the subprocess.
-    pub fn apply_to_command(
+    pub(crate) fn apply_to_command(
         &self,
         cmd: &mut Command,
         cgroup_name: &str,

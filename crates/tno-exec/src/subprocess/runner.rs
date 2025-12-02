@@ -14,12 +14,12 @@ use crate::subprocess::{backend::SubprocessBackendConfig, task::SubprocessTaskCo
 pub struct SubprocessRunner {
     /// Runner name.
     name: &'static str,
-    /// Configuration applied to all tasks spawned by this runner.
+    /// Backend configuration applied to all tasks spawned by this runner.
     config: Option<SubprocessBackendConfig>,
 }
 
 impl SubprocessRunner {
-    /// Create a new subprocess with name.
+    /// Create a new subprocess runner without backend configuration.
     pub fn new(name: &'static str) -> Self {
         Self { name, config: None }
     }
@@ -35,7 +35,7 @@ impl SubprocessRunner {
         }
     }
 
-    /// Build configuration from `CreateSpec`.
+    /// Build task configuration from `CreateSpec`.
     fn build_task_config(
         &self,
         spec: &CreateSpec,
@@ -84,21 +84,40 @@ impl Runner for SubprocessRunner {
         let runner_cfg = self.config.clone();
 
         trace!(
-            slot = %spec.slot.clone(),
+            slot = %spec.slot,
             task = %task_cfg.run_id,
             "building subprocess task",
         );
+
+        // Build cgroup name if cgroups are enabled
+        let cgroup_name = if let Some(backend_cfg) = &runner_cfg {
+            if backend_cfg.has_cgroups() {
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+
+                Some(crate::utils::build_cgroup_name(
+                    self.name,
+                    &spec.slot,
+                    extract_seq_from_run_id(&task_cfg.run_id),
+                    timestamp,
+                ))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
         let task: TaskRef = TaskFn::arc(
             task_cfg.run_id.clone(),
             move |cancel: CancellationToken| {
                 let task_cfg = task_cfg.clone();
                 let runner_cfg = runner_cfg.clone();
+                let cgroup_name = cgroup_name.clone();
 
                 async move {
-                    let mut cmd = Command::new(&task_cfg.command);
-                    cmd.args(&task_cfg.args);
-
                     trace!(
                         task = %task_cfg.run_id,
                         command = %task_cfg.command,
@@ -106,6 +125,9 @@ impl Runner for SubprocessRunner {
                         cwd = ?task_cfg.cwd,
                         "spawning subprocess",
                     );
+
+                    let mut cmd = Command::new(&task_cfg.command);
+                    cmd.args(&task_cfg.args);
 
                     if let Some(cwd) = &task_cfg.cwd {
                         cmd.current_dir(cwd);
@@ -116,11 +138,12 @@ impl Runner for SubprocessRunner {
                     cmd.stdout(Stdio::piped());
                     cmd.stderr(Stdio::inherit());
 
-                    if let Some(runner_cfg) = &runner_cfg {
-                        runner_cfg
-                            .apply_to_command(&mut cmd, &task_cfg.run_id)
+                    if let Some(backend_cfg) = &runner_cfg {
+                        let cgroup_name_ref = cgroup_name.as_deref().unwrap_or(&task_cfg.run_id);
+                        backend_cfg
+                            .apply_to_command(&mut cmd, cgroup_name_ref)
                             .map_err(|e| TaskError::Fatal {
-                                reason: format!("failed apply runner configs: {e}"),
+                                reason: format!("failed to apply runner config: {e}"),
                             })?;
                     }
                     let mut child = cmd.spawn().map_err(|e| TaskError::Fatal {
@@ -128,13 +151,13 @@ impl Runner for SubprocessRunner {
                     })?;
 
                     let status_fut = child.wait();
-                    tokio::select! {
+                    let result = tokio::select! {
                         res = status_fut => {
                             let status = res.map_err(|e| TaskError::Fatal {
                                 reason: format!("wait failed: {e}"),
                             })?;
                             if !status.success() && task_cfg.fail_on_non_zero.is_enabled() {
-                                return if let Some(code) = status.code() {
+                                if let Some(code) = status.code() {
                                     Err(TaskError::Fail {
                                         reason: format!("process exited with non-zero code: {code}"),
                                     })
@@ -143,22 +166,35 @@ impl Runner for SubprocessRunner {
                                         reason: "process terminated by signal".into(),
                                     })
                                 }
+                            } else {
+                                debug!("subprocess exited successfully");
+                                Ok(())
                             }
-                            debug!("subprocess exited successfully");
-                            Ok(())
                         }
                         _ = cancel.cancelled() => {
                             debug!("cancellation requested; killing subprocess");
-
                             if let Err(e) = child.kill().await {
                                 debug!("failed to kill subprocess: {e}");
                             }
                             Err(TaskError::Canceled)
                         }
+                    };
+                    if let Some(cgroup_name) = cgroup_name {
+                        let _ = crate::utils::cleanup_cgroup(&cgroup_name);
                     }
+                    result
                 }
             },
         );
         Ok(task)
     }
+}
+
+/// Extract sequence number from run_id.
+fn extract_seq_from_run_id(run_id: &str) -> u64 {
+    run_id
+        .rsplit('-')
+        .next()
+        .and_then(|s| u64::from_str_radix(s, 16).ok())
+        .unwrap_or(0)
 }
