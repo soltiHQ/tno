@@ -1,6 +1,6 @@
 use std::{
     process::Stdio,
-    time::{Duration as StdDuration, SystemTime, UNIX_EPOCH},
+    time::{Duration as StdDuration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use taskvisor::{TaskError, TaskFn, TaskRef};
@@ -14,6 +14,7 @@ use tracing::{debug, info, trace, warn};
 use tno_core::{BuildContext, Runner, RunnerError};
 use tno_model::{CreateSpec, TaskKind};
 
+use crate::metrics::{RUNNER_TYPE_SUBPROCESS, task_error_to_outcome};
 use crate::subprocess::{
     backend::SubprocessBackendConfig, logger::LogConfig, task::SubprocessTaskConfig,
 };
@@ -86,6 +87,7 @@ impl Runner for SubprocessRunner {
     fn build_task(&self, spec: &CreateSpec, ctx: &BuildContext) -> Result<TaskRef, RunnerError> {
         let task_cfg = self.build_task_config(spec, ctx)?;
         let runner_cfg = self.config.clone();
+        let metrics = ctx.metrics().clone();
 
         trace!(
             slot = %spec.slot,
@@ -119,8 +121,12 @@ impl Runner for SubprocessRunner {
                 let task_cfg = task_cfg.clone();
                 let runner_cfg = runner_cfg.clone();
                 let cgroup_name = cgroup_name.clone();
+                let metrics = metrics.clone();
 
                 async move {
+                    metrics.record_task_started(RUNNER_TYPE_SUBPROCESS);
+                    let start = Instant::now();
+
                     trace!(
                         task = %task_cfg.run_id,
                         command = %task_cfg.command,
@@ -142,15 +148,25 @@ impl Runner for SubprocessRunner {
 
                     if let Some(backend_cfg) = &runner_cfg {
                         let cgroup_name_ref = cgroup_name.as_deref().unwrap_or(&task_cfg.run_id);
-                        backend_cfg
-                            .apply_to_command(&mut cmd, cgroup_name_ref)
-                            .map_err(|e| TaskError::Fatal {
+                        if let Err(e) = backend_cfg.apply_to_command(&mut cmd, cgroup_name_ref) {
+                            metrics.record_runner_error(
+                                RUNNER_TYPE_SUBPROCESS,
+                                "backend_config_failed",
+                            );
+                            return Err(TaskError::Fatal {
                                 reason: format!("failed to apply runner config: {e}"),
-                            })?;
+                            });
+                        }
                     }
-                    let mut child = cmd.spawn().map_err(|e| TaskError::Fatal {
-                        reason: format!("spawn failed: {e}"),
-                    })?;
+                    let mut child = match cmd.spawn() {
+                        Ok(child) => child,
+                        Err(e) => {
+                            metrics.record_runner_error(RUNNER_TYPE_SUBPROCESS, "spawn_failed");
+                            return Err(TaskError::Fatal {
+                                reason: format!("spawn failed: {e}"),
+                            });
+                        }
+                    };
 
                     let log_cfg = runner_cfg
                         .as_ref()
@@ -198,6 +214,14 @@ impl Runner for SubprocessRunner {
                             Err(TaskError::Canceled)
                         }
                     };
+
+                    let duration_ms = start.elapsed().as_millis() as u64;
+                    let outcome = match &result {
+                        Ok(()) => tno_core::TaskOutcome::Success,
+                        Err(e) => task_error_to_outcome(e),
+                    };
+                    metrics.record_task_completed(RUNNER_TYPE_SUBPROCESS, outcome, duration_ms);
+
                     let _ = tokio::join!(stdout_task, stderr_task);
                     if let Some(cgroup_name) = cgroup_name {
                         let _ = crate::utils::cleanup_cgroup(&cgroup_name);

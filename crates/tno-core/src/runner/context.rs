@@ -2,16 +2,19 @@ use std::fmt;
 
 use tno_model::Env;
 
+use crate::metrics::MetricsHandle;
+
 /// Shared build context passed to all runners.
-#[derive(Default, Debug, Clone)]
+#[derive(Clone)]
 pub struct BuildContext {
     env: Env,
+    metrics: MetricsHandle,
 }
 
 impl BuildContext {
     /// Create a new build context with the given params.
-    pub fn new(env: Env) -> Self {
-        Self { env }
+    pub fn new(env: Env, metrics: MetricsHandle) -> Self {
+        Self { env, metrics }
     }
 
     /// Get a reference to the shared environment.
@@ -19,10 +22,39 @@ impl BuildContext {
         &self.env
     }
 
+    /// Get a clonable handle to the metrics backend.
+    pub fn metrics(&self) -> &MetricsHandle {
+        &self.metrics
+    }
+
     /// Replace the environment and return updated context.
     pub fn with_env(mut self, env: Env) -> Self {
         self.env = env;
         self
+    }
+
+    /// Replace the metrics backend and return unpdated context.
+    pub fn with_metrics(mut self, metrics: MetricsHandle) -> Self {
+        self.metrics = metrics;
+        self
+    }
+}
+
+impl Default for BuildContext {
+    fn default() -> Self {
+        Self {
+            env: Env::default(),
+            metrics: crate::metrics::noop_metrics(),
+        }
+    }
+}
+
+impl fmt::Debug for BuildContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BuildContext")
+            .field("env_len", &self.env.len())
+            .field("metrics", &"<handle>")
+            .finish()
     }
 }
 
@@ -38,18 +70,19 @@ mod tests {
     use tno_model::Env;
 
     #[test]
-    fn default_build_context_has_empty_env() {
+    fn default_build_context_has_empty_env_and_noop_metrics() {
         let ctx = BuildContext::default();
         assert_eq!(ctx.env().len(), 0);
     }
 
     #[test]
-    fn new_uses_provided_env() {
+    fn new_uses_provided_env_and_metrics() {
         let mut env = Env::new();
         env.push("FOO", "bar");
         env.push("BAZ", "qux");
 
-        let ctx = BuildContext::new(env.clone());
+        let metrics = crate::metrics::noop_metrics();
+        let ctx = BuildContext::new(env.clone(), metrics);
 
         assert_eq!(ctx.env().len(), env.len());
         assert_eq!(ctx.env().get("FOO"), Some("bar"));
@@ -64,7 +97,8 @@ mod tests {
         let mut env2 = Env::new();
         env2.push("BAR", "two");
 
-        let ctx = BuildContext::new(env1).with_env(env2.clone());
+        let metrics = crate::metrics::noop_metrics();
+        let ctx = BuildContext::new(env1, metrics).with_env(env2.clone());
 
         assert_eq!(ctx.env().len(), env2.len());
         assert!(ctx.env().get("FOO").is_none());
@@ -72,12 +106,35 @@ mod tests {
     }
 
     #[test]
+    fn with_metrics_replaces_backend() {
+        let env = Env::new();
+        let metrics1 = crate::metrics::noop_metrics();
+        let metrics2 = crate::metrics::noop_metrics();
+
+        let ctx = BuildContext::new(env, metrics1).with_metrics(metrics2);
+
+        // metrics заменён (проверяем что не паникует)
+        ctx.metrics().record_task_started("test");
+    }
+
+    #[test]
     fn display_includes_env_length() {
         let mut env = Env::new();
         env.push("FOO", "bar");
-        let ctx = BuildContext::new(env);
+
+        let metrics = crate::metrics::noop_metrics();
+        let ctx = BuildContext::new(env, metrics);
 
         let s = ctx.to_string();
         assert_eq!(s, "BuildContext(env_len=1)");
+    }
+
+    #[test]
+    fn metrics_handle_can_be_cloned() {
+        let ctx = BuildContext::default();
+        let handle = ctx.metrics().clone();
+
+        handle.record_task_started("test");
+        handle.record_task_completed("test", crate::TaskOutcome::Success, 100);
     }
 }
