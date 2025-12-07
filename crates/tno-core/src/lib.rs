@@ -19,3 +19,6 @@ pub use policy::TaskPolicy;
 
 pub mod supervisor;
 pub use supervisor::SupervisorApi;
+
+mod metrics;
+pub use metrics::{MetricsBackend, MetricsHandle, NoOpMetrics, TaskOutcome, noop_metrics};
