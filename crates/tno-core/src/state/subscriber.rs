@@ -20,16 +20,6 @@ impl StateSubscriber {
     fn task_id_from_event(event: &Event) -> Option<TaskId> {
         event.task.as_ref().map(|s| TaskId::from(&**s))
     }
-
-    /// Extract slot from TaskId (format: runner-slot-seq).
-    fn slot_from_task_id(id: &TaskId) -> String {
-        let parts: Vec<&str> = id.as_str().split('-').collect();
-        if parts.len() >= 2 {
-            parts[1].to_string()
-        } else {
-            "unknown".to_string()
-        }
-    }
 }
 
 #[async_trait]
