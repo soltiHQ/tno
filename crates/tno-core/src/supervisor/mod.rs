@@ -153,7 +153,7 @@ mod tests {
 
     use taskvisor::{TaskError, TaskFn};
     use tno_model::{
-        AdmissionStrategy, BackoffStrategy, JitterStrategy, RunnerLabels, RestartStrategy, TaskKind,
+        AdmissionStrategy, BackoffStrategy, JitterStrategy, RestartStrategy, RunnerLabels, TaskKind,
     };
     use tokio_util::sync::CancellationToken;
 

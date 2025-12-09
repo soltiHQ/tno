@@ -1,6 +1,6 @@
 use std::{fmt, path::PathBuf};
 
-use tno_model::{TaskEnv, Flag};
+use tno_model::{Flag, TaskEnv};
 
 use crate::ExecError;
 

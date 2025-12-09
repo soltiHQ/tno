@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{TaskEnv, Flag};
+use crate::{Flag, TaskEnv};
 
 /// Execution configuration for a task.
 ///

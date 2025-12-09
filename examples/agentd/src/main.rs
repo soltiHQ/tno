@@ -13,8 +13,8 @@ use tno_exec::{CgroupLimits, CpuMax, LinuxCapability, RlimitConfig, SecurityConf
 use tno_observe::{LoggerConfig, LoggerLevel, Subscriber, init_logger, timezone_sync};
 
 use tno_model::{
-    AdmissionStrategy, BackoffStrategy, CreateSpec, TaskEnv, Flag, JitterStrategy, RunnerLabels,
-    RestartStrategy, TaskKind,
+    AdmissionStrategy, BackoffStrategy, CreateSpec, Flag, JitterStrategy, RestartStrategy,
+    RunnerLabels, TaskEnv, TaskKind,
 };
 
 #[tokio::main(flavor = "multi_thread")]

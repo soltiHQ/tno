@@ -132,7 +132,8 @@ mod tests {
     use std::path::PathBuf;
     use taskvisor::{TaskError, TaskFn};
     use tno_model::{
-        AdmissionStrategy, BackoffStrategy, TaskEnv, Flag, JitterStrategy, RunnerLabels, RestartStrategy,
+        AdmissionStrategy, BackoffStrategy, Flag, JitterStrategy, RestartStrategy, RunnerLabels,
+        TaskEnv,
     };
     use tokio_util::sync::CancellationToken;
 

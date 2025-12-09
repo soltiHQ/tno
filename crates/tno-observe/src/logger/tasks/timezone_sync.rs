@@ -1,6 +1,6 @@
 use taskvisor::{TaskError, TaskFn, TaskRef};
 use tno_model::{
-    AdmissionStrategy, BackoffStrategy, CreateSpec, JitterStrategy, RunnerLabels, RestartStrategy,
+    AdmissionStrategy, BackoffStrategy, CreateSpec, JitterStrategy, RestartStrategy, RunnerLabels,
     TaskKind,
 };
 use tokio_util::sync::CancellationToken;

@@ -1,6 +1,6 @@
 use tno_model::{
-    AdmissionStrategy, BackoffStrategy, CreateSpec, TaskEnv, Flag, JitterStrategy, RestartStrategy,
-    RunnerLabels, TaskInfo, TaskKind, TaskStatus,
+    AdmissionStrategy, BackoffStrategy, CreateSpec, Flag, JitterStrategy, RestartStrategy,
+    RunnerLabels, TaskEnv, TaskInfo, TaskKind, TaskStatus,
 };
 
 use crate::error::ApiError;
